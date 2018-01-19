@@ -1,0 +1,5 @@
+
+                                    WSBRIDGE
+
+wsbridge is a simple program that convert WebSocket requests into raw TCP ones
+to an arbitrary server and vice-versa.
