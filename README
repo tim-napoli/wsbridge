@@ -3,3 +3,8 @@
 
 wsbridge is a simple program that convert WebSocket requests into raw TCP ones
 to an arbitrary server and vice-versa.
+
+ DEPENDENCIES
+
+ - sha1 (https://github.com/clibs/sha1)
+ - b64 (https://github.com/littlstar/b64.c)
