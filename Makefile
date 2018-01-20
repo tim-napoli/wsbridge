@@ -4,7 +4,7 @@ DOBJ = $(DBUILD)/obj
 DSRC = src
 
 CC = gcc
-CFLAGS = -Wall -Werror -std=gnu99 -I$(DCLIB) -I$(DSRC) -L$(DBUILD)
+CFLAGS = -g -Wall -Werror -std=gnu99 -I$(DCLIB) -I$(DSRC) -L$(DBUILD)
 LFLAGS = -ldeps -lpthread
 
 all: make_build_dir $(DBUILD)/libdeps.a $(DBUILD)/wsbridge

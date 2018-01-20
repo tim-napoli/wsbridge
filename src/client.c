@@ -46,9 +46,6 @@ void client_send_500(client_t* client) {
 }
 
 void* client_thread(client_t* client) {
-    char ws_recv_buffer[4096];
-    int ws_recv_size;
-
     if (ws_do_handshake(client->ws_sock) != WS_SUCCESS) {
         fprintf(stderr, "rejecting client %p\n", client);
         client_send_401(client);
@@ -72,15 +69,19 @@ void* client_thread(client_t* client) {
     }
 
     while (1) {
-        ws_recv_size = recv(client->ws_sock,
-                            ws_recv_buffer,
-                            sizeof(ws_recv_buffer) - 1,
-                            0);
-        if (ws_recv_size > 0) {
-            printf("client %p: %s\n", client, ws_recv_buffer);
+        char* ws_msg = NULL;
+        size_t ws_msg_size = 0;
+
+        ws_status_t ws_recv_status = ws_read_message(client->ws_sock,
+                                                     &ws_msg, &ws_msg_size);
+        if (ws_recv_status == WS_ERROR) {
+            fprintf(stderr, "client %p: cannot read client message\n", client);
+            goto end;
+        } else
+        if (ws_recv_status == WS_SUCCESS) {
+            printf("client %p: %s\n", client, ws_msg);
         }
 
-        printf("client %p: looped\n", client);
         sleep(1);
     }
 

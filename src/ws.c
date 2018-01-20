@@ -1,6 +1,8 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <byteswap.h>
 
 #include <sha1/sha1.h>
 #include <b64/b64.h>
@@ -75,6 +77,114 @@ ws_status_t ws_do_handshake(socket_t ws_sock) {
         fprintf(stderr, "unable to send server handshake message\n");
         return WS_ERROR;
     }
+
+    return WS_SUCCESS;
+}
+
+/*                           FRAME FORMAT
+ *
+ *  0               1               2               3
+ *  0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7
+ * +-+-+-+-+-------+-+-------------+-------------------------------+
+ * |F|R|R|R| opcode|M| Payload len |    Extended payload length    |
+ * |I|S|S|S|  (4)  |A|     (7)     |             (16/64)           |
+ * |N|V|V|V|       |S|             |   (if payload len==126/127)   |
+ * | |1|2|3|       |K|             |                               |
+ * +-+-+-+-+-------+-+-------------+ - - - - - - - - - - - - - - - +
+ * |     Extended payload length continued, if payload len == 127  |
+ * + - - - - - - - - - - - - - - - +-------------------------------+
+ * |                               |Masking-key, if MASK set to 1  |
+ * +-------------------------------+-------------------------------+
+ * | Masking-key (continued)       |          Payload Data         |
+ * +-------------------------------- - - - - - - - - - - - - - - - +
+ * :                     Payload Data continued ...                :
+ * + - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - +
+ * |                     Payload Data continued ...                |
+ * +---------------------------------------------------------------
+ */
+
+/*
+ * NOTE The structures bytes are mapped on a big endian fashion.
+ */
+typedef struct __ws_frame_head {
+    uint8_t opcode : 4;
+    uint8_t rsv : 3;
+    uint8_t fin : 1;
+
+    uint8_t payload : 7;
+    uint8_t mask : 1;
+} __ws_frame_head_t;
+
+ws_status_t ws_read_message(socket_t ws_sock,
+                            char** output,
+                            size_t* output_size)
+{
+    int recv_size;
+    __ws_frame_head_t frame_head;
+
+#define RECV(what) \
+    recv_size = recv(ws_sock, &what, sizeof(what), 0); \
+    if (recv_size != sizeof(what)) { \
+        fprintf(stderr, "expecting %zu bytes, read %d\n", \
+                sizeof(what), recv_size); \
+        return WS_ERROR; \
+    }
+
+    // First, try to read the first part of the message:
+    recv_size = recv(ws_sock, &frame_head, sizeof(frame_head), 0);
+    if (recv_size < 0) {
+        return WS_NOTHING;
+    } else
+    if (recv_size != sizeof(frame_head)) {
+        fprintf(stderr, "cannot read frame header\n");
+        return WS_ERROR;
+    }
+
+    if (!frame_head.fin) {
+        fprintf(stderr, "unsupported multi-frame messages\n");
+        return WS_ERROR;
+    }
+
+    // Get the payload len
+    uint64_t payload_len = frame_head.payload;
+    if (payload_len == 126) {
+        uint16_t payload_next;
+        RECV(payload_next);
+        payload_len = __bswap_16(payload_next);
+    } else
+    if (payload_len == 127) {
+        RECV(payload_len);
+        payload_len = __bswap_64(payload_len);
+        if (payload_len & ((uint64_t)1) << 63) {
+            return WS_ERROR;
+        }
+    }
+
+    // Get the mask key if any.
+    uint32_t mask_key;
+    if (frame_head.mask) {
+        RECV(mask_key);
+    }
+
+    // Read the data
+    *output_size = payload_len;
+    *output = malloc(payload_len + 1);
+    recv_size = recv(ws_sock, *output, payload_len, 0);
+    if (recv_size != payload_len) {
+        fprintf(stderr, "expecting %zu bytes, read %d\n",
+                payload_len, recv_size);
+        free(*output);
+        return WS_ERROR;
+    }
+
+    // Decode the data.
+    if (frame_head.mask) {
+        for (size_t i = 0; i < payload_len; i++) {
+            (*output)[i] ^= (char)(mask_key >> ((i % 4) * 8));
+        }
+    }
+
+    (*output)[payload_len] = '\0';
 
     return WS_SUCCESS;
 }
