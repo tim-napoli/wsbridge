@@ -35,12 +35,16 @@ typedef struct client {
     socket_t ws_sock;
     socket_t server_sock;
     pthread_t thread;
+
+    const char* bridged_host;
+    int bridged_port;
 } client_t;
 
 /*
  * Initialize a client using the `sock` socket.
  */
-void client_init(client_t* client, socket_t sock);
+void client_init(client_t* client, socket_t sock, const char* bridged_host,
+                 int bridged_port);
 
 /*
  * Start the client thread.

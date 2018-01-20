@@ -11,9 +11,6 @@
 
 #define MAX_CONNECTIONS  32
 
-const char* broadcast_hostname_g = NULL;
-int broadcast_port_g = 0;
-
 /*
  * Returns the first non-alive client slot in `clients`, or NULL if there
  * is none.
@@ -37,13 +34,14 @@ int main(const int argc, const char** argv) {
         return 1;
     }
 
-    broadcast_hostname_g = argv[2];
+    const char* broadcast_hostname = argv[2];
     int listening_port;
+    int broadcast_port;
     if (sscanf(argv[1], "%d", &listening_port) != 1) {
         printf("listening port '%s' is not a valid port format.\n", argv[2]);
         return 1;
     }
-    if (sscanf(argv[1], "%d", &broadcast_port_g) != 1) {
+    if (sscanf(argv[3], "%d", &broadcast_port) != 1) {
         printf("broacast '%s' is not a valid port format.\n", argv[2]);
         return 1;
     }
@@ -73,7 +71,8 @@ int main(const int argc, const char** argv) {
                 continue;
             }
 
-            client_init(client_slot, client_sock);
+            client_init(client_slot, client_sock, broadcast_hostname,
+                        broadcast_port);
             if (client_start(client_slot) == CLIENT_ERROR) {
                 continue;
             }

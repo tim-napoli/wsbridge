@@ -1,5 +1,7 @@
 #include <fcntl.h>
 #include <stdio.h>
+#include <unistd.h>
+#include <netdb.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
@@ -39,3 +41,30 @@ socket_t socket_create_server_tcp(int port, size_t max_connections) {
     return sock;
 }
 
+socket_t socket_create_client_tcp(const char* hostname, int port) {
+    socket_t sock = socket(AF_INET, SOCK_STREAM, 0);
+    struct hostent* hostinfo;
+    struct sockaddr_in sin;
+
+    hostinfo = gethostbyname(hostname);
+    if (!hostinfo) {
+        fprintf(stderr, "unknown host %s\n", hostname);
+        return SOCKET_ERROR;
+    }
+
+    sin = (struct sockaddr_in){
+        .sin_addr = *(struct in_addr*)hostinfo->h_addr,
+        .sin_port = htons(port),
+        .sin_family = AF_INET
+    };
+    if (connect(sock, (struct sockaddr*)&sin, sizeof(struct sockaddr)) < 0) {
+        fprintf(stderr, "cannot connect to %s:%d\n", hostname, port);
+        return SOCKET_ERROR;
+    }
+
+    return sock;
+}
+
+void socket_close(socket_t sock) {
+    close(sock);
+}

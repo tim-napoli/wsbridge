@@ -15,7 +15,7 @@ typedef enum net_status {
 
 /*
  * Set the given socket `sock` in non-blocking mode.
- * Returns `NET_SUCESS` in case of failure or `NET_ERROR` on failure.
+ * Returns `NET_SUCESS` in case of success or `NET_ERROR` on failure.
  */
 net_status_t socket_set_non_blocking(socket_t sock);
 
@@ -26,6 +26,12 @@ net_status_t socket_set_non_blocking(socket_t sock);
  * failure.
  */
 socket_t socket_create_server_tcp(int port, size_t max_connections);
+
+/*
+ * Create a new TCP client to the given `hostname` and `port`.
+ * Returns `NET_SUCESS` in case of success or `NET_ERROR` on failure.
+ */
+socket_t socket_create_client_tcp(const char* hostname, int port);
 
 /*
  * Close the given socket.

@@ -6,12 +6,16 @@
 #include "client.h"
 #include "ws.h"
 
-void client_init(client_t* client, socket_t sock) {
+void client_init(client_t* client, socket_t sock, const char* bridged_host,
+                 int bridged_port)
+{
     *client = (client_t){
         .server_sock = SOCKET_ERROR,
         .ws_sock = sock,
         .alive = false,
         .thread = 0,
+        .bridged_host = bridged_host,
+        .bridged_port = bridged_port
     };
 }
 
@@ -52,6 +56,13 @@ void* client_thread(client_t* client) {
     }
 
     // Connect to the server
+    client->server_sock = socket_create_client_tcp(client->bridged_host,
+                                                   client->bridged_port);
+    if (client->server_sock == SOCKET_ERROR) {
+        fprintf(stderr, "client %p: unable to connect the bridged server\n",
+                client);
+        goto end;
+    }
 
     // Set sockets in non-bocking mode for main loop
     if (socket_set_non_blocking(client->ws_sock) == NET_ERROR) {
