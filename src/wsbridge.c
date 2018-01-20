@@ -1,25 +1,19 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <unistd.h>
-#include <fcntl.h>
 #include <string.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
 #include <pthread.h>
+#include <sys/socket.h>
 
 #include <sha1/sha1.h>
 #include <b64/b64.h>
+
+#include "net.h"
 
 #define MAX_CONNECTIONS  32
 
 const char* broadcast_hostname_g = NULL;
 int broadcast_port_g = 0;
-
-/* TCP network ------------------------------------------------------------- */
-int set_non_blocking_socket(int sock) {
-    int flags = fcntl(sock, F_GETFL, 0);
-    return fcntl(sock, F_SETFL, flags | O_NONBLOCK);
-}
 
 /* Web sockets support ----------------------------------------------------- */
 
@@ -128,7 +122,7 @@ void* client_thread(client_t* client) {
     // Connect to the server
 
     // Set sockets in non-bocking mode for main loop
-    if (set_non_blocking_socket(client->ws_sock) < 0) {
+    if (socket_set_non_blocking(client->ws_sock) == NET_ERROR) {
         printf("client %p: unable to set non-blocking web socket\n", client);
         goto end;
     }
@@ -185,25 +179,8 @@ int main(const int argc, const char** argv) {
         return 1;
     }
 
-    int ws_sock = socket(AF_INET, SOCK_STREAM, 0);
-    struct sockaddr_in ws_addr = {
-        .sin_addr.s_addr = htonl(INADDR_ANY),
-        .sin_family = AF_INET,
-        .sin_port = htons(listening_port)
-    };
-
-    if (bind(ws_sock,
-             (const struct sockaddr*)&ws_addr,
-             sizeof(struct sockaddr_in))
-        < 0)
-    {
-        printf("unable to bind listening socket on %d\n", listening_port);
-        return 1;
-    }
-
-    if (listen(ws_sock, MAX_CONNECTIONS) < 0) {
-        printf("unable to listen for %d connections\n",
-               MAX_CONNECTIONS);
+    socket_t ws_sock = socket_create_server_tcp(listening_port, 32);
+    if (ws_sock == SOCKET_ERROR) {
         return 1;
     }
 
