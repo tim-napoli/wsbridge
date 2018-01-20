@@ -23,6 +23,24 @@ int set_non_blocking_socket(int sock) {
 
 /* Web sockets support ----------------------------------------------------- */
 
+int ws_handshake_req_get_key(const char* msg, size_t len, char* out_key) {
+    const char* WEB_KEY_STR = "Sec-WebSocket-Key: ";
+
+    for (size_t i = 0; i < len; i++) {
+        if (strncmp(msg + i, WEB_KEY_STR, strlen(WEB_KEY_STR)) == 0) {
+            i += strlen(WEB_KEY_STR);
+            size_t key_idx = 0;
+            while (msg[i] != '\r') {
+                out_key[key_idx++] = msg[i++];
+            }
+            out_key[key_idx] = '\0';
+            return 0;
+        }
+    }
+
+    return -1;
+}
+
 /*
  * Compute the WebSocket accept key function of a RSA key.
  * From section "Server Handshake Response":
@@ -30,18 +48,17 @@ int set_non_blocking_socket(int sock) {
 const char* ws_compute_accept_key(const char* secret_key) {
     const char* magic_string = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
     char buffer[1024];
-    sprintf(buffer, secret_key, magic_string);
+    sprintf(buffer, "%s%s", secret_key, magic_string);
 
     // Get SHA-1 of the buffer
-    unsigned char digest[21];
+    unsigned char digest[20];
     SHA1_CTX sha;
     SHA1Init(&sha);
     SHA1Update(&sha, (uint8_t*)buffer, strlen(buffer));
     SHA1Final(digest, &sha);
-    digest[20] = '\0';
 
     // Convert to base64:
-    return b64_encode(digest, strlen((char*)digest));
+    return b64_encode(digest, 20);
 }
 
 /* client ------------------------------------------------------------------ */
@@ -70,6 +87,8 @@ void release_client(client_t* client) {
 void* client_thread(client_t* client) {
     char ws_recv_buffer[4096];
     int ws_recv_size;
+    char ws_write_buffer[4096];
+    int ws_write_size;
 
     // First, do the handshake
     ws_recv_size = recv(client->ws_sock,
@@ -78,6 +97,31 @@ void* client_thread(client_t* client) {
                         0);
     if (ws_recv_size < 0) {
         printf("client %p: unable to receive handshake message\n", client);
+        goto end;
+    }
+
+    // Generate key
+    char key_buf[512];
+    if (ws_handshake_req_get_key(ws_recv_buffer, ws_recv_size, key_buf)) {
+        printf("client %p: unable to get WebSocket ky\n", client);
+        goto end;
+    }
+    printf("Key is %s\n", key_buf);
+    const char* access_key = ws_compute_accept_key(key_buf);
+    printf("Access key is %s\n", access_key);
+
+    // Send handshake answer
+    sprintf(ws_write_buffer,
+            "HTTP/1.1 101 Switching Protocols\r\n"
+            "Upgrade: websocket\r\n"
+            "Connection: Upgrade\r\n"
+            "Sec-WebSocket-Accept: %s\r\n\r\n",
+            access_key);
+    ws_write_size = write(client->ws_sock,
+                          ws_write_buffer,
+                          strlen(ws_write_buffer));
+    if (ws_write_size < 0) {
+        printf("client %p: unable to write handshake message\n", client);
         goto end;
     }
 
