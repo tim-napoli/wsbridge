@@ -1,7 +1,9 @@
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <signal.h>
 #include <pthread.h>
 #include <sys/socket.h>
 
@@ -9,19 +11,37 @@
 #include "ws.h"
 #include "client.h"
 
-#define MAX_CONNECTIONS  32
+#define MAX_CLIENTS  32
+
+socket_t ws_sock_g = SOCKET_ERROR;
+client_t clients_g[MAX_CLIENTS] = {{0}};
 
 /*
  * Returns the first non-alive client slot in `clients`, or NULL if there
  * is none.
  */
-client_t* find_first_free_client_slot(client_t* clients, size_t clients_count) {
-    for (size_t i = 0; i < clients_count; i++) {
-        if (!clients[i].alive) {
-            return clients + i;
+client_t* find_first_free_client_slot() {
+    for (size_t i = 0; i < MAX_CLIENTS; i++) {
+        if (!clients_g[i].alive) {
+            return clients_g + i;
         }
     }
     return NULL;
+}
+
+
+void sigint_handler(int signum) {
+    if (ws_sock_g != SOCKET_ERROR) {
+        printf("closing server socket\n");
+        socket_gently_close(ws_sock_g);
+    }
+    for (size_t i = 0; i < MAX_CLIENTS; i++) {
+        if (clients_g[i].alive) {
+            clients_g[i].alive = false;
+            pthread_join(clients_g[i].thread, NULL);
+        }
+    }
+    exit(0);
 }
 
 int main(const int argc, const char** argv) {
@@ -46,25 +66,22 @@ int main(const int argc, const char** argv) {
         return 1;
     }
 
-    socket_t ws_sock = socket_create_server_tcp(listening_port, 32);
-    if (ws_sock == SOCKET_ERROR) {
+    ws_sock_g = socket_create_server_tcp(listening_port, 32);
+    if (ws_sock_g == SOCKET_ERROR) {
         return 1;
     }
+    signal(SIGINT, &sigint_handler);
 
-    client_t clients[MAX_CONNECTIONS];
-    memset(clients, 0, sizeof(clients));
     while (1) {
         struct sockaddr client_addr;
         socklen_t addr_size = sizeof(struct sockaddr);
-        int client_sock = accept(ws_sock, &client_addr, &addr_size);
+        int client_sock = accept(ws_sock_g, &client_addr, &addr_size);
         if (client_sock < 0) {
             printf("client connection failure\n");
         } else {
             printf("new client connected\n");
 
-            client_t* client_slot = find_first_free_client_slot(
-                clients, MAX_CONNECTIONS
-            );
+            client_t* client_slot = find_first_free_client_slot();
             if (!client_slot) {
                 printf("no available client slot, rejecting\n");
                 close(client_sock);
@@ -79,7 +96,9 @@ int main(const int argc, const char** argv) {
         }
     }
 
-    close(ws_sock);
+    if (ws_sock_g != SOCKET_ERROR) {
+        socket_gently_close(ws_sock_g);
+    }
 
     return 0;
 }

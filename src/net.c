@@ -17,6 +17,11 @@ net_status_t socket_set_non_blocking(socket_t sock) {
 
 socket_t socket_create_server_tcp(int port, size_t max_connections) {
     socket_t sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR,
+                   &(int){ 1 }, sizeof(int)) < 0)
+    {
+        fprintf(stderr, "server socket will not be reusable\n");
+    }
     struct sockaddr_in addr = {
         .sin_addr.s_addr = htonl(INADDR_ANY),
         .sin_family = AF_INET,
@@ -66,5 +71,16 @@ socket_t socket_create_client_tcp(const char* hostname, int port) {
 }
 
 void socket_close(socket_t sock) {
+    close(sock);
+}
+
+void socket_gently_close(socket_t sock) {
+    shutdown(sock, SHUT_RD);
+
+    char buf[4096];
+    while (recv(sock, buf, sizeof(buf) - 1, 0) > 0) {
+        /* noting */
+    }
+
     close(sock);
 }

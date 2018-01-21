@@ -68,7 +68,7 @@ void* client_thread(client_t* client) {
         goto end;
     }
 
-    while (1) {
+    while (client->alive) {
         char* ws_msg = NULL;
         size_t ws_msg_size = 0;
 
@@ -93,9 +93,9 @@ void* client_thread(client_t* client) {
 
 void client_close(client_t* client) {
     printf("client %p disconnected\n", client);
-    close(client->ws_sock);
+    socket_gently_close(client->ws_sock);
     if (client->server_sock != SOCKET_ERROR) {
-        close(client->server_sock);
+        socket_gently_close(client->server_sock);
     }
     client->alive = false;
 }

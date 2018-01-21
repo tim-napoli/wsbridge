@@ -38,5 +38,13 @@ socket_t socket_create_client_tcp(const char* hostname, int port);
  */
 void socket_close(socket_t sock);
 
+/*
+ * Gently close the given socket:
+ * - call shutdown on the socket ;
+ * - flush the socket content ;
+ * - close the socket ;
+ */
+void socket_gently_close(socket_t sock);
+
 #endif
 
