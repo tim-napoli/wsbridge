@@ -61,7 +61,7 @@ static client_status_t _client_handle_ws(client_t* client) {
         goto end;
     }
 
-    printf("client %p: (%x) %s\n", client, ws_opc, ws_msg);
+    printf("client %p: WS (%x) %s\n", client, ws_opc, ws_msg);
     switch (ws_opc) {
       case WS_OP_CLOSE:
         client->alive = false;
@@ -78,6 +78,12 @@ static client_status_t _client_handle_ws(client_t* client) {
 
       case WS_OP_TEXT_FRAME:
       case WS_OP_BINARY_FRAME:
+        if (send(client->server_sock, ws_msg, ws_msg_size, 0) != ws_msg_size)
+        {
+            fprintf(stderr, "client %p: cannot relay web socket message to "
+                            "server\n", client);
+            goto error_free;
+        }
         if (ws_send_message(client->ws_sock, WS_OP_TEXT_FRAME,
                             ws_msg, ws_msg_size)
             != WS_SUCCESS)
@@ -104,6 +110,30 @@ static client_status_t _client_handle_ws(client_t* client) {
     return CLIENT_ERROR;
 }
 
+static client_status_t _client_handle_server(client_t* client) {
+    char buf[4096];
+    int recv_len;
+
+    recv_len = recv(client->server_sock, buf, sizeof(buf) - 1, 0);
+    if (recv_len < 0) {
+        return CLIENT_SUCCESS;
+    } else
+    if (recv_len == 0) {
+        fprintf(stderr, "client %p: invalid server message\n", client);
+        return CLIENT_ERROR;
+    }
+    printf("client %p: SERVER %d %s\n", client, recv_len, buf);
+
+    if (ws_send_message(client->ws_sock, WS_OP_TEXT_FRAME, buf, recv_len)
+        != WS_SUCCESS)
+    {
+        fprintf(stderr, "cannot relay server message to web socket\n");
+        return CLIENT_ERROR;
+    }
+
+    return CLIENT_SUCCESS;
+}
+
 void* client_thread(client_t* client) {
     if (ws_do_handshake(client->ws_sock) != WS_SUCCESS) {
         fprintf(stderr, "rejecting client %p\n", client);
@@ -126,9 +156,18 @@ void* client_thread(client_t* client) {
                 client);
         goto end;
     }
+    if (socket_set_non_blocking(client->server_sock) == NET_ERROR) {
+        fprintf(stderr, "client %p: unable to set non-blocking server socket\n",
+                client);
+        goto end;
+    }
+
 
     while (client->alive) {
         if (_client_handle_ws(client) == CLIENT_ERROR) {
+            goto end;
+        }
+        if (_client_handle_server(client) == CLIENT_ERROR) {
             goto end;
         }
 
