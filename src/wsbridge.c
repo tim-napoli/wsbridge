@@ -29,7 +29,6 @@ client_t* find_first_free_client_slot() {
     return NULL;
 }
 
-
 void sigint_handler(int signum) {
     if (ws_sock_g != SOCKET_ERROR) {
         printf("closing server socket\n");

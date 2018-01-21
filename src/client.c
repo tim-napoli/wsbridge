@@ -80,6 +80,12 @@ void* client_thread(client_t* client) {
         } else
         if (ws_recv_status == WS_SUCCESS) {
             printf("client %p: %s\n", client, ws_msg);
+            if (ws_send_message(client->ws_sock, ws_msg, ws_msg_size)
+                != WS_SUCCESS)
+            {
+                fprintf(stderr, "client %p: cannot send message\n", client);
+                goto end;
+            }
         }
 
         sleep(1);

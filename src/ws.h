@@ -39,4 +39,11 @@ ws_status_t ws_do_handshake(socket_t ws_sock);
 ws_status_t ws_read_message(socket_t ws_sock, char** output,
                             size_t* output_len);
 
+/*
+ * Send the given message content through `ws_sock`.
+ * Returns `WS_ERROR` on failure, or `WS_SUCCESS` otherwise.
+ */
+ws_status_t ws_send_message(socket_t ws_sock, const char* msg,
+                            size_t msg_size);
+
 #endif

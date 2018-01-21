@@ -188,3 +188,38 @@ ws_status_t ws_read_message(socket_t ws_sock,
 
     return WS_SUCCESS;
 }
+
+ws_status_t ws_send_message(socket_t ws_sock, const char* msg, size_t msg_size)
+{
+    __ws_frame_head_t frame_head = {
+        .fin = 1,
+        .rsv = 0,
+        .opcode = 0x1,
+        .mask = 0,
+        .payload = (msg_size < 126) ? msg_size
+                 : (msg_size < sizeof(uint16_t)) ? 126
+                 : 127
+    };
+
+#define SEND(what) \
+    if (send(ws_sock, &what, sizeof(what), 0) != sizeof(what)) { \
+        fprintf(stderr, "unable to send message to client\n"); \
+        return WS_ERROR; \
+    }
+
+    SEND(frame_head);
+    if (msg_size > 125 && msg_size < sizeof(uint16_t)) {
+        uint16_t msg_size_u16 = __bswap_16((uint16_t)msg_size);
+        SEND(msg_size_u16);
+    } else if (msg_size > 125) {
+        uint64_t msg_size_u64 = __bswap_64((uint64_t)msg_size);
+        SEND(msg_size_u64);
+    }
+
+    if (send(ws_sock, msg, msg_size, 0) != msg_size) {
+        fprintf(stderr, "unable to send message content to client\n");
+        return WS_ERROR;
+    }
+
+    return WS_SUCCESS;
+}
