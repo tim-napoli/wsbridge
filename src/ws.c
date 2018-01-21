@@ -26,7 +26,7 @@ ws_status_t ws_client_handshake_get_key(const char* msg, char* out_key) {
     return WS_ERROR;
 }
 
-const char* ws_compute_accept_key(const char* secret_key) {
+void ws_compute_accept_key(const char* secret_key, char* key) {
     const char* MAGIC_STRING = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
     char buffer[1024];
     sprintf(buffer, "%s%s", secret_key, MAGIC_STRING);
@@ -39,7 +39,7 @@ const char* ws_compute_accept_key(const char* secret_key) {
     SHA1Final(digest, &sha);
 
     // Convert to base64:
-    return b64_encode(digest, 20);
+    b64_encode(digest, 20, key);
 }
 
 ws_status_t ws_do_handshake(socket_t ws_sock) {
@@ -63,7 +63,8 @@ ws_status_t ws_do_handshake(socket_t ws_sock) {
         fprintf(stderr, "unable to find the client handshake key\n");
         return WS_ERROR;
     }
-    const char* access_key = ws_compute_accept_key(key_buf);
+    char access_key[64];
+    ws_compute_accept_key(key_buf, access_key);
 
     // Send handshake answer
     sprintf(write_buf,

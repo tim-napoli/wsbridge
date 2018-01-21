@@ -9,18 +9,13 @@
 #include <stdlib.h>
 #include "b64.h"
 
-char *
-b64_encode (const unsigned char *src, size_t len) {
+void
+b64_encode (const unsigned char *src, size_t len, char* output) {
   int i = 0;
   int j = 0;
-  char *enc = NULL;
   size_t size = 0;
   unsigned char buf[4];
   unsigned char tmp[3];
-
-  // alloc
-  enc = (char *) malloc(0);
-  if (NULL == enc) { return NULL; }
 
   // parse until end of source
   while (len--) {
@@ -38,9 +33,8 @@ b64_encode (const unsigned char *src, size_t len) {
       // then translate each encoded buffer
       // part by index from the base 64 index table
       // into `enc' unsigned char array
-      enc = (char *) realloc(enc, size + 4);
       for (i = 0; i < 4; ++i) {
-        enc[size++] = b64_table[buf[i]];
+        output[size++] = b64_table[buf[i]];
       }
 
       // reset index
@@ -63,19 +57,15 @@ b64_encode (const unsigned char *src, size_t len) {
 
     // perform same write to `enc` with new allocation
     for (j = 0; (j < i + 1); ++j) {
-      enc = (char *) realloc(enc, size);
-      enc[size++] = b64_table[buf[j]];
+      output[size++] = b64_table[buf[j]];
     }
 
     // while there is still a remainder
     // append `=' to `enc'
     while ((i++ < 3)) {
-      enc = (char *) realloc(enc, size);
-      enc[size++] = '=';
+      output[size++] = '=';
     }
   }
 
-  enc[size] = '\0';
-
-  return enc;
+  output[size] = '\0';
 }

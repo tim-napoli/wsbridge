@@ -28,7 +28,7 @@ ws_status_t ws_client_handshake_get_key(const char* msg, char* out_key);
 /*
  * Compute the WebSocket accept key of the handshake message key.
  */
-const char* ws_compute_accept_key(const char* secret_key);
+void ws_compute_accept_key(const char* secret_key, char* key);
 
 /*
  * Wait for the handshake message from client, check its content and answer
