@@ -165,7 +165,7 @@ void* client_thread(client_t* client) {
             goto end;
         }
 
-        sleep(1);
+        usleep(1000);
     }
 
   end:
