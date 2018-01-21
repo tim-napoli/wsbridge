@@ -115,13 +115,6 @@ typedef struct __ws_frame_head {
     uint8_t mask : 1;
 } __ws_frame_head_t;
 
-ws_status_t ws_read_message(socket_t ws_sock,
-                            char** output,
-                            size_t* output_size)
-{
-    int recv_size;
-    __ws_frame_head_t frame_head;
-
 #define RECV(what) \
     recv_size = recv(ws_sock, &what, sizeof(what), 0); \
     if (recv_size != sizeof(what)) { \
@@ -130,20 +123,12 @@ ws_status_t ws_read_message(socket_t ws_sock,
         return WS_ERROR; \
     }
 
-    // First, try to read the first part of the message:
-    recv_size = recv(ws_sock, &frame_head, sizeof(frame_head), 0);
-    if (recv_size < 0) {
-        return WS_NOTHING;
-    } else
-    if (recv_size != sizeof(frame_head)) {
-        fprintf(stderr, "cannot read frame header\n");
-        return WS_ERROR;
-    }
-
-    if (!frame_head.fin) {
-        fprintf(stderr, "unsupported multi-frame messages\n");
-        return WS_ERROR;
-    }
+ws_status_t __ws_read_message_content(socket_t ws_sock,
+                                      __ws_frame_head_t frame_head,
+                                      char** output,
+                                      size_t* output_size)
+{
+    int recv_size;
 
     // Get the payload len
     uint64_t payload_len = frame_head.payload;
@@ -189,12 +174,59 @@ ws_status_t ws_read_message(socket_t ws_sock,
     return WS_SUCCESS;
 }
 
-ws_status_t ws_send_message(socket_t ws_sock, const char* msg, size_t msg_size)
+ws_status_t ws_read_message(socket_t ws_sock,
+                            ws_opcode_t* opcode,
+                            char** output,
+                            size_t* output_size)
+{
+    int recv_size;
+    __ws_frame_head_t frame_head;
+
+    // First, try to read the first part of the message:
+    recv_size = recv(ws_sock, &frame_head, sizeof(frame_head), 0);
+    if (recv_size < 0) {
+        return WS_NOTHING;
+    } else
+    if (recv_size != sizeof(frame_head)) {
+        fprintf(stderr, "cannot read frame header\n");
+        return WS_ERROR;
+    }
+
+    if (!frame_head.fin) {
+        fprintf(stderr, "unsupported multi-frame messages\n");
+        return WS_ERROR;
+    }
+
+    *opcode = frame_head.opcode;
+    switch (frame_head.opcode) {
+        case WS_OP_TEXT_FRAME:
+        case WS_OP_BINARY_FRAME:
+          return __ws_read_message_content(ws_sock, frame_head, output,
+                                           output_size);
+
+        case WS_OP_PING:
+        case WS_OP_PONG:
+        case WS_OP_CLOSE:
+          socket_flush(ws_sock);
+          return WS_SUCCESS;
+
+        case WS_OP_CONTINUATION_FRAME:
+        default:
+          fprintf(stderr, "unsupported opcode %x\n", *opcode);
+          return WS_ERROR;
+    }
+
+
+    return WS_SUCCESS;
+}
+
+ws_status_t ws_send_message(socket_t ws_sock, ws_opcode_t op,
+                            const char* msg, size_t msg_size)
 {
     __ws_frame_head_t frame_head = {
         .fin = 1,
         .rsv = 0,
-        .opcode = 0x1,
+        .opcode = WS_OP_TEXT_FRAME,
         .mask = 0,
         .payload = (msg_size < 126) ? msg_size
                  : (msg_size < sizeof(uint16_t)) ? 126
@@ -208,17 +240,20 @@ ws_status_t ws_send_message(socket_t ws_sock, const char* msg, size_t msg_size)
     }
 
     SEND(frame_head);
-    if (msg_size > 125 && msg_size < sizeof(uint16_t)) {
-        uint16_t msg_size_u16 = __bswap_16((uint16_t)msg_size);
-        SEND(msg_size_u16);
-    } else if (msg_size > 125) {
-        uint64_t msg_size_u64 = __bswap_64((uint64_t)msg_size);
-        SEND(msg_size_u64);
-    }
 
-    if (send(ws_sock, msg, msg_size, 0) != msg_size) {
-        fprintf(stderr, "unable to send message content to client\n");
-        return WS_ERROR;
+    if (msg_size && msg) {
+        if (msg_size > 125 && msg_size < sizeof(uint16_t)) {
+            uint16_t msg_size_u16 = __bswap_16((uint16_t)msg_size);
+            SEND(msg_size_u16);
+        } else if (msg_size > 125) {
+            uint64_t msg_size_u64 = __bswap_64((uint64_t)msg_size);
+            SEND(msg_size_u64);
+        }
+
+        if (send(ws_sock, msg, msg_size, 0) != msg_size) {
+            fprintf(stderr, "unable to send message content to client\n");
+            return WS_ERROR;
+        }
     }
 
     return WS_SUCCESS;

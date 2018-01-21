@@ -23,7 +23,7 @@
 
 typedef enum client_status {
     CLIENT_ERROR = -1,
-    CLIENT_SUCESS = 0,
+    CLIENT_SUCCESS = 0,
 } client_status_t;
 
 /*

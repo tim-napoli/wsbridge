@@ -70,6 +70,13 @@ socket_t socket_create_client_tcp(const char* hostname, int port) {
     return sock;
 }
 
+void socket_flush(socket_t sock) {
+    char buf[4096];
+    while (recv(sock, buf, sizeof(buf), 0) > 0) {
+        /* nothing */
+    }
+}
+
 void socket_close(socket_t sock) {
     close(sock);
 }

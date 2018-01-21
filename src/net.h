@@ -34,6 +34,11 @@ socket_t socket_create_server_tcp(int port, size_t max_connections);
 socket_t socket_create_client_tcp(const char* hostname, int port);
 
 /*
+ * Consume all data pendig on the socket input.
+ */
+void socket_flush(socket_t sock);
+
+/*
  * Close the given socket.
  */
 void socket_close(socket_t sock);
