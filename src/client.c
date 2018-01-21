@@ -84,13 +84,6 @@ static client_status_t _client_handle_ws(client_t* client) {
                             "server\n", client);
             goto error_free;
         }
-        if (ws_send_message(client->ws_sock, WS_OP_TEXT_FRAME,
-                            ws_msg, ws_msg_size)
-            != WS_SUCCESS)
-        {
-            fprintf(stderr, "client %p: cannot send message\n", client);
-            goto error_free;
-        }
 
       default:
         break;
@@ -122,9 +115,10 @@ static client_status_t _client_handle_server(client_t* client) {
         fprintf(stderr, "client %p: invalid server message\n", client);
         return CLIENT_ERROR;
     }
+    buf[recv_len] = '\0';
     printf("client %p: SERVER %d %s\n", client, recv_len, buf);
 
-    if (ws_send_message(client->ws_sock, WS_OP_TEXT_FRAME, buf, recv_len)
+    if (ws_send_message(client->ws_sock, WS_OP_TEXT_FRAME, buf, recv_len + 1)
         != WS_SUCCESS)
     {
         fprintf(stderr, "cannot relay server message to web socket\n");

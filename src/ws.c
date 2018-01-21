@@ -189,7 +189,7 @@ ws_status_t ws_read_message(socket_t ws_sock,
         return WS_NOTHING;
     } else
     if (recv_size != sizeof(frame_head)) {
-        fprintf(stderr, "cannot read frame header\n");
+        fprintf(stderr, "cannot read frame header (receives %d)\n", recv_size);
         return WS_ERROR;
     }
 
@@ -227,34 +227,37 @@ ws_status_t ws_send_message(socket_t ws_sock, ws_opcode_t op,
     __ws_frame_head_t frame_head = {
         .fin = 1,
         .rsv = 0,
-        .opcode = WS_OP_TEXT_FRAME,
+        .opcode = op,
         .mask = 0,
         .payload = (msg_size < 126) ? msg_size
-                 : (msg_size < sizeof(uint16_t)) ? 126
+                 : (msg_size < UINT16_MAX) ? 126
                  : 127
     };
 
-#define SEND(what) \
-    if (send(ws_sock, &what, sizeof(what), 0) != sizeof(what)) { \
-        fprintf(stderr, "unable to send message to client\n"); \
-        return WS_ERROR; \
-    }
+    char out_buf[4096] = "";
+    size_t out_buf_size = 0;
 
-    SEND(frame_head);
+#define WRITE(what) \
+    memcpy(out_buf + out_buf_size, &what, sizeof(what)); \
+    out_buf_size += sizeof(what);
+
+    WRITE(frame_head);
 
     if (msg_size && msg) {
-        if (msg_size > 125 && msg_size < sizeof(uint16_t)) {
+        if (msg_size > 125 && msg_size < UINT16_MAX) {
             uint16_t msg_size_u16 = __bswap_16((uint16_t)msg_size);
-            SEND(msg_size_u16);
+            WRITE(msg_size_u16);
         } else if (msg_size > 125) {
             uint64_t msg_size_u64 = __bswap_64((uint64_t)msg_size);
-            SEND(msg_size_u64);
+            WRITE(msg_size_u64);
         }
+        memcpy(out_buf + out_buf_size, msg, msg_size);
+        out_buf_size += msg_size;
+    }
 
-        if (send(ws_sock, msg, msg_size, 0) != msg_size) {
-            fprintf(stderr, "unable to send message content to client\n");
-            return WS_ERROR;
-        }
+    if (send(ws_sock, out_buf, out_buf_size, 0) != out_buf_size) {
+        fprintf(stderr, "unable to send message content to client\n");
+        return WS_ERROR;
     }
 
     return WS_SUCCESS;
