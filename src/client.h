@@ -16,15 +16,16 @@
 #define _client_h_
 
 #include <stdbool.h>
-
 #include <pthread.h>
 
 #include "net.h"
+
 
 typedef enum client_status {
     CLIENT_ERROR = -1,
     CLIENT_SUCCESS = 0,
 } client_status_t;
+
 
 /*
  * This structure contains all data needed to handle a client during its
@@ -40,26 +41,31 @@ typedef struct client {
     int bridged_port;
 } client_t;
 
+
 /*
  * Initialize a client using the `sock` socket.
  */
 void client_init(client_t* client, socket_t sock, const char* bridged_host,
                  int bridged_port);
 
+
 /*
  * Start the client thread.
  */
 client_status_t client_start(client_t* client);
+
 
 /*
  * Write an unauthorized message on the client web socket.
  */
 void client_send_401(client_t* client);
 
+
 /*
  * Write an internal server error on the client web socket.
  */
 void client_send_500(client_t* client);
+
 
 /*
  * Handle the client life. If something goes wrong, it is written on stderr,
@@ -69,10 +75,12 @@ void client_send_500(client_t* client);
  */
 void* client_thread(client_t* client);
 
+
 /*
  * Close a client sockets. Set its `alive` member at false.
  */
 void client_close(client_t* client);
+
 
 #endif
 

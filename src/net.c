@@ -7,6 +7,7 @@
 
 #include "net.h"
 
+
 net_status_t socket_set_non_blocking(socket_t sock) {
     int flags = fcntl(sock, F_GETFL, 0);
     if (fcntl(sock, F_SETFL, flags | O_NONBLOCK) < 0) {
@@ -14,6 +15,7 @@ net_status_t socket_set_non_blocking(socket_t sock) {
     }
     return NET_SUCCESS;
 }
+
 
 socket_t socket_create_server_tcp(int port, size_t max_connections) {
     socket_t sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -46,6 +48,7 @@ socket_t socket_create_server_tcp(int port, size_t max_connections) {
     return sock;
 }
 
+
 socket_t socket_create_client_tcp(const char* hostname, int port) {
     socket_t sock = socket(AF_INET, SOCK_STREAM, 0);
     struct hostent* hostinfo;
@@ -70,6 +73,7 @@ socket_t socket_create_client_tcp(const char* hostname, int port) {
     return sock;
 }
 
+
 void socket_flush(socket_t sock) {
     char buf[4096];
     while (recv(sock, buf, sizeof(buf), 0) > 0) {
@@ -77,17 +81,14 @@ void socket_flush(socket_t sock) {
     }
 }
 
+
 void socket_close(socket_t sock) {
     close(sock);
 }
 
+
 void socket_gently_close(socket_t sock) {
     shutdown(sock, SHUT_RD);
-
-    char buf[4096];
-    while (recv(sock, buf, sizeof(buf) - 1, 0) > 0) {
-        /* noting */
-    }
-
+    socket_flush(sock);
     close(sock);
 }

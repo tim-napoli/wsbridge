@@ -7,6 +7,7 @@
 #include "client.h"
 #include "ws.h"
 
+
 void client_init(client_t* client, socket_t sock, const char* bridged_host,
                  int bridged_port)
 {
@@ -19,6 +20,7 @@ void client_init(client_t* client, socket_t sock, const char* bridged_host,
         .bridged_port = bridged_port
     };
 }
+
 
 client_status_t client_start(client_t* client) {
     if (pthread_create(&client->thread, NULL,
@@ -34,6 +36,7 @@ client_status_t client_start(client_t* client) {
     return CLIENT_SUCCESS;
 }
 
+
 void client_send_401(client_t* client) {
     static const char* msg = "HTTP/1.1 401 Unauthorized\r\n"
                              "WWW-Authenticate: Basic "
@@ -41,10 +44,12 @@ void client_send_401(client_t* client) {
     send(client->ws_sock, msg, strlen(msg), 0);
 }
 
+
 void client_send_500(client_t* client) {
     static const char* msg = "HTTP/1.1 500 Internal Server Error\r\n\r\n";
     send(client->ws_sock, msg, strlen(msg), 0);
 }
+
 
 static client_status_t _client_handle_ws(client_t* client) {
     char* ws_msg = NULL;
@@ -103,6 +108,7 @@ static client_status_t _client_handle_ws(client_t* client) {
     return CLIENT_ERROR;
 }
 
+
 static client_status_t _client_handle_server(client_t* client) {
     char buf[4096];
     int recv_len;
@@ -127,6 +133,7 @@ static client_status_t _client_handle_server(client_t* client) {
 
     return CLIENT_SUCCESS;
 }
+
 
 void* client_thread(client_t* client) {
     if (ws_do_handshake(client->ws_sock) != WS_SUCCESS) {
@@ -173,6 +180,7 @@ void* client_thread(client_t* client) {
     return NULL;
 
 }
+
 
 void client_close(client_t* client) {
     printf("client %p disconnected\n", client);

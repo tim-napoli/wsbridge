@@ -9,6 +9,7 @@
 
 #include "ws.h"
 
+
 ws_status_t ws_client_handshake_get_key(const char* msg, char* out_key) {
     static const char* WEB_KEY_STR = "Sec-WebSocket-Key: ";
     for (size_t i = 0; msg[i] != '\0'; i++) {
@@ -26,6 +27,7 @@ ws_status_t ws_client_handshake_get_key(const char* msg, char* out_key) {
     return WS_ERROR;
 }
 
+
 void ws_compute_accept_key(const char* secret_key, char* key) {
     const char* MAGIC_STRING = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
     char buffer[1024];
@@ -41,6 +43,7 @@ void ws_compute_accept_key(const char* secret_key, char* key) {
     // Convert to base64:
     b64_encode(digest, 20, key);
 }
+
 
 ws_status_t ws_do_handshake(socket_t ws_sock) {
     int recv_size;
@@ -82,6 +85,7 @@ ws_status_t ws_do_handshake(socket_t ws_sock) {
     return WS_SUCCESS;
 }
 
+
 /*                           FRAME FORMAT
  *
  *  0               1               2               3
@@ -104,6 +108,7 @@ ws_status_t ws_do_handshake(socket_t ws_sock) {
  * +---------------------------------------------------------------
  */
 
+
 /*
  * NOTE The structures bytes are mapped on a big endian fashion.
  */
@@ -116,6 +121,7 @@ typedef struct __ws_frame_head {
     uint8_t mask : 1;
 } __ws_frame_head_t;
 
+
 #define RECV(what) \
     recv_size = recv(ws_sock, &what, sizeof(what), 0); \
     if (recv_size != sizeof(what)) { \
@@ -123,6 +129,7 @@ typedef struct __ws_frame_head {
                 sizeof(what), recv_size); \
         return WS_ERROR; \
     }
+
 
 ws_status_t __ws_read_message_content(socket_t ws_sock,
                                       __ws_frame_head_t frame_head,
@@ -175,6 +182,7 @@ ws_status_t __ws_read_message_content(socket_t ws_sock,
     return WS_SUCCESS;
 }
 
+
 ws_status_t ws_read_message(socket_t ws_sock,
                             ws_opcode_t* opcode,
                             char** output,
@@ -221,6 +229,7 @@ ws_status_t ws_read_message(socket_t ws_sock,
     return WS_SUCCESS;
 }
 
+
 ws_status_t ws_send_message(socket_t ws_sock, ws_opcode_t op,
                             const char* msg, size_t msg_size)
 {
@@ -261,4 +270,5 @@ ws_status_t ws_send_message(socket_t ws_sock, ws_opcode_t op,
     }
 
     return WS_SUCCESS;
+#undef WRITE
 }

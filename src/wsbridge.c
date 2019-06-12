@@ -11,10 +11,13 @@
 #include "ws.h"
 #include "client.h"
 
+
 #define MAX_CLIENTS  32
+
 
 socket_t ws_sock_g = SOCKET_ERROR;
 client_t clients_g[MAX_CLIENTS] = {{0}};
+
 
 /*
  * Returns the first non-alive client slot in `clients`, or NULL if there
@@ -29,6 +32,7 @@ client_t* find_first_free_client_slot() {
     return NULL;
 }
 
+
 void sigint_handler(int signum) {
     if (ws_sock_g != SOCKET_ERROR) {
         printf("closing server socket\n");
@@ -42,6 +46,7 @@ void sigint_handler(int signum) {
     }
     exit(0);
 }
+
 
 int main(const int argc, const char** argv) {
     if (argc < 4) {
